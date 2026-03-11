@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.app.mapper.FlightMapper">
+
+    <resultMap id="BaseResultMap" type="com.example.app.entity.Flight">
+        <id column="id" property="id"/>
+        <result column="departure_time" property="departureTime"/>
+        <result column="arrival_time" property="arrivalTime"/>
+        <result column="duration_minutes" property="durationMinutes"/>
+        <result column="effective_date" property="effectiveDate"/>
+        <result column="flight_number" property="flightNumber"/>
+        <result column="airline_code" property="airlineCode"/>
+        <result column="cabin_class" property="cabinClass"/>
+        <result column="aircraft_type" property="aircraftType"/>
+        <result column="stops" property="stops"/>
+        <result column="is_direct" property="isDirect"/>
+        <result column="departure_airport" property="departureAirport"/>
+        <result column="arrival_airport" property="arrivalAirport"/>
+        <result column="departure_airport_code" property="departureAirportCode"/>
+        <result column="arrival_airport_code" property="arrivalAirportCode"/>
+        <result column="price" property="price"/>
+        <result column="original_price" property="originalPrice"/>
+        <result column="available_seats" property="availableSeats"/>
+        <result column="status" property="status"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+    </resultMap>
+
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT id, departure_time, arrival_time, duration_minutes, effective_date,
+               flight_number, airline_code, cabin_class, aircraft_type, stops, is_direct,
+               departure_airport, arrival_airport, departure_airport_code, arrival_airport_code,
+               price, original_price, available_seats, status, created_at, updated_at
+        FROM flight WHERE id = #{id}
+    </select>
+
+    <select id="selectAll" resultMap="BaseResultMap">
+        SELECT id, departure_time, arrival_time, duration_minutes, effective_date,
+               flight_number, airline_code, cabin_class, aircraft_type, stops, is_direct,
+               departure_airport, arrival_airport, departure_airport_code, arrival_airport_code,
+               price, original_price, available_seats, status, created_at, updated_at
+        FROM flight
+    </select>
+
+    <select id="selectBySearch" resultMap="BaseResultMap">
+        SELECT id, departure_time, arrival_time, duration_minutes, effective_date,
+               flight_number, airline_code, cabin_class, aircraft_type, stops, is_direct,
+               departure_airport, arrival_airport, departure_airport_code, arrival_airport_code,
+               price, original_price, available_seats, status, created_at, updated_at
+        FROM flight
+        WHERE departure_airport_code = #{departureAirportCode}
+          AND arrival_airport_code = #{arrivalAirportCode}
+          AND effective_date = #{effectiveDate}
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO flight (departure_time, arrival_time, duration_minutes, effective_date,
+            flight_number, airline_code, cabin_class, aircraft_type, stops, is_direct,
+            departure_airport, arrival_airport, departure_airport_code, arrival_airport_code,
+            price, original_price, available_seats, status, created_at, updated_at)
+        VALUES (#{departureTime}, #{arrivalTime}, #{durationMinutes}, #{effectiveDate},
+            #{flightNumber}, #{airlineCode}, #{cabinClass}, #{aircraftType}, #{stops}, #{isDirect},
+            #{departureAirport}, #{arrivalAirport}, #{departureAirportCode}, #{arrivalAirportCode},
+            #{price}, #{originalPrice}, #{availableSeats}, #{status}, #{createdAt}, #{updatedAt})
+    </insert>
+
+    <update id="update">
+        UPDATE flight SET
+            departure_time = #{departureTime}, arrival_time = #{arrivalTime},
+            duration_minutes = #{durationMinutes}, effective_date = #{effectiveDate},
+            flight_number = #{flightNumber}, airline_code = #{airlineCode},
+            cabin_class = #{cabinClass}, aircraft_type = #{aircraftType},
+            stops = #{stops}, is_direct = #{isDirect},
+            departure_airport = #{departureAirport}, arrival_airport = #{arrivalAirport},
+            departure_airport_code = #{departureAirportCode}, arrival_airport_code = #{arrivalAirportCode},
+            price = #{price}, original_price = #{originalPrice}, available_seats = #{availableSeats},
+            status = #{status}, created_at = #{createdAt}, updated_at = #{updatedAt}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM flight WHERE id = #{id}
+    </delete>
+</mapper>

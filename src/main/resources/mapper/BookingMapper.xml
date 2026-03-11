@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.app.mapper.BookingMapper">
+
+    <resultMap id="BaseResultMap" type="com.example.app.entity.Booking">
+        <id column="id" property="id"/>
+        <result column="user_id" property="userId"/>
+        <result column="flight_number" property="flightNumber"/>
+        <result column="cabin_class" property="cabinClass"/>
+        <result column="passenger_name" property="passengerName"/>
+        <result column="status" property="status"/>
+        <result column="amount" property="amount"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+    </resultMap>
+
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT id, user_id, flight_number, cabin_class, passenger_name, status, amount, created_at, updated_at
+        FROM booking WHERE id = #{id}
+    </select>
+
+    <select id="selectByUserId" resultMap="BaseResultMap">
+        SELECT id, user_id, flight_number, cabin_class, passenger_name, status, amount, created_at, updated_at
+        FROM booking WHERE user_id = #{userId}
+    </select>
+
+    <select id="selectAll" resultMap="BaseResultMap">
+        SELECT id, user_id, flight_number, cabin_class, passenger_name, status, amount, created_at, updated_at
+        FROM booking
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO booking (user_id, flight_number, cabin_class, passenger_name, status, amount, created_at, updated_at)
+        VALUES (#{userId}, #{flightNumber}, #{cabinClass}, #{passengerName}, #{status}, #{amount}, #{createdAt}, #{updatedAt})
+    </insert>
+
+    <update id="update">
+        UPDATE booking SET
+            user_id = #{userId}, flight_number = #{flightNumber}, cabin_class = #{cabinClass},
+            passenger_name = #{passengerName}, status = #{status}, amount = #{amount},
+            created_at = #{createdAt}, updated_at = #{updatedAt}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM booking WHERE id = #{id}
+    </delete>
+</mapper>

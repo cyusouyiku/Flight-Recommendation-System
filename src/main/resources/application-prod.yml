@@ -1,0 +1,8 @@
+# 生产环境配置
+server:
+  port: 8080
+
+logging:
+  level:
+    root: WARN
+    com.example: INFO
