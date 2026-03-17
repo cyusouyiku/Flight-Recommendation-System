@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.app.mapper.RouteMapper">
+
+    <resultMap id="BaseResultMap" type="com.example.app.entity.Route">
+        <id column="id" property="id"/>
+        <result column="departure_airport_code" property="departureAirportCode"/>
+        <result column="arrival_airport_code" property="arrivalAirportCode"/>
+        <result column="departure_airport_name" property="departureAirportName"/>
+        <result column="arrival_airport_name" property="arrivalAirportName"/>
+    </resultMap>
+
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT id, departure_airport_code, arrival_airport_code, departure_airport_name, arrival_airport_name
+        FROM route
+        WHERE id = #{id}
+    </select>
+
+    <select id="selectAll" resultMap="BaseResultMap">
+        SELECT id, departure_airport_code, arrival_airport_code, departure_airport_name, arrival_airport_name
+        FROM route
+    </select>
+
+    <select id="selectByDepartureAndArrival" resultMap="BaseResultMap">
+        SELECT id, departure_airport_code, arrival_airport_code, departure_airport_name, arrival_airport_name
+        FROM route
+        WHERE departure_airport_code = #{departureAirportCode} AND arrival_airport_code = #{arrivalAirportCode}
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO route (departure_airport_code, arrival_airport_code, departure_airport_name, arrival_airport_name)
+        VALUES (#{departureAirportCode}, #{arrivalAirportCode}, #{departureAirportName}, #{arrivalAirportName})
+    </insert>
+
+    <update id="update">
+        UPDATE route
+        SET departure_airport_code = #{departureAirportCode},
+            arrival_airport_code = #{arrivalAirportCode},
+            departure_airport_name = #{departureAirportName},
+            arrival_airport_name = #{arrivalAirportName}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM route WHERE id = #{id}
+    </delete>
+</mapper>

@@ -1,0 +1,14 @@
+# 开发环境配置（默认排除 Redis，无需本地安装）
+spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
+
+server:
+  port: 8080
+
+logging:
+  level:
+    root: DEBUG
+    com.example: DEBUG

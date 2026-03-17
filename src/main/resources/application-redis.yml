@@ -1,0 +1,11 @@
+# Redis 配置（激活 redis profile 时使用）
+spring:
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 3000ms
+  cache:
+    type: redis
+  autoconfigure:
+    exclude: []  # 启用 Redis，不清除

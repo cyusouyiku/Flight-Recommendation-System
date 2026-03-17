@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.app.mapper.UserFlightHistoryMapper">
+
+    <resultMap id="BaseResultMap" type="com.example.app.entity.UserFlightHistory">
+        <id column="id" property="id"/>
+        <result column="user_id" property="userId"/>
+        <result column="departure_airport_code" property="departureAirportCode"/>
+        <result column="arrival_airport_code" property="arrivalAirportCode"/>
+        <result column="behavior_type" property="behaviorType"/>
+        <result column="flight_number" property="flightNumber"/>
+        <result column="created_at" property="createdAt"/>
+    </resultMap>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO user_flight_history (user_id, departure_airport_code, arrival_airport_code, behavior_type, flight_number, created_at)
+        VALUES (#{userId}, #{departureAirportCode}, #{arrivalAirportCode}, #{behaviorType}, #{flightNumber}, CURRENT_TIMESTAMP)
+    </insert>
+
+    <select id="selectByUserId" resultMap="BaseResultMap">
+        SELECT id, user_id, departure_airport_code, arrival_airport_code, behavior_type, flight_number, created_at
+        FROM user_flight_history
+        WHERE user_id = #{userId}
+        ORDER BY created_at DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="selectByUserAndBehavior" resultMap="BaseResultMap">
+        SELECT id, user_id, departure_airport_code, arrival_airport_code, behavior_type, flight_number, created_at
+        FROM user_flight_history
+        WHERE user_id = #{userId} AND behavior_type = #{behaviorType}
+        ORDER BY created_at DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="selectFrequentRoutesByUserId" resultType="string">
+        SELECT departure_airport_code || '-' || arrival_airport_code AS route
+        FROM user_flight_history
+        WHERE user_id = #{userId}
+        GROUP BY departure_airport_code, arrival_airport_code
+        ORDER BY COUNT(*) DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="selectPopularRoutesGlobal" resultType="string">
+        SELECT departure_airport_code || '-' || arrival_airport_code AS route
+        FROM user_flight_history
+        WHERE behavior_type = 'SEARCH'
+        GROUP BY departure_airport_code, arrival_airport_code
+        ORDER BY COUNT(*) DESC
+        LIMIT #{limit}
+    </select>
+</mapper>

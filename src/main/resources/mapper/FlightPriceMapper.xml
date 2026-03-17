@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.app.mapper.FlightPriceMapper">
+
+    <resultMap id="BaseResultMap" type="com.example.app.entity.FlightPrice">
+        <id column="id" property="id"/>
+        <result column="flight_number" property="flightNumber"/>
+        <result column="departure_airport_code" property="departureAirportCode"/>
+        <result column="arrival_airport_code" property="arrivalAirportCode"/>
+        <result column="cabin_class" property="cabinClass"/>
+        <result column="price" property="price"/>
+        <result column="record_at" property="recordAt"/>
+    </resultMap>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO flight_price (flight_number, departure_airport_code, arrival_airport_code, cabin_class, price, record_at)
+        VALUES (#{flightNumber}, #{departureAirportCode}, #{arrivalAirportCode}, #{cabinClass}, #{price}, COALESCE(#{recordAt}, CURRENT_TIMESTAMP))
+    </insert>
+
+    <select id="selectByRouteAndDateRange" resultMap="BaseResultMap">
+        SELECT id, flight_number, departure_airport_code, arrival_airport_code, cabin_class, price, record_at
+        FROM flight_price
+        WHERE departure_airport_code = #{departureCode} AND arrival_airport_code = #{arrivalCode}
+          AND record_at &gt;= #{from} AND record_at &lt;= #{to}
+        ORDER BY record_at ASC
+    </select>
+</mapper>

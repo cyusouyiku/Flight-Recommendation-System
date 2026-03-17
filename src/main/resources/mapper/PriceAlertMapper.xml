@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.app.mapper.PriceAlertMapper">
+
+    <resultMap id="BaseResultMap" type="com.example.app.entity.PriceAlert">
+        <id column="id" property="id"/>
+        <result column="user_id" property="userId"/>
+        <result column="departure_airport_code" property="departureAirportCode"/>
+        <result column="arrival_airport_code" property="arrivalAirportCode"/>
+        <result column="target_price" property="targetPrice"/>
+        <result column="cabin_class" property="cabinClass"/>
+        <result column="notified" property="notified"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+    </resultMap>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO price_alert (user_id, departure_airport_code, arrival_airport_code, target_price, cabin_class, notified, created_at, updated_at)
+        VALUES (#{userId}, #{departureAirportCode}, #{arrivalAirportCode}, #{targetPrice}, #{cabinClass}, FALSE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    </insert>
+
+    <select id="selectByUserId" resultMap="BaseResultMap">
+        SELECT id, user_id, departure_airport_code, arrival_airport_code, target_price, cabin_class, notified, created_at, updated_at
+        FROM price_alert
+        WHERE user_id = #{userId} AND notified = FALSE
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="selectActiveAlerts" resultMap="BaseResultMap">
+        SELECT id, user_id, departure_airport_code, arrival_airport_code, target_price, cabin_class, notified, created_at, updated_at
+        FROM price_alert
+        WHERE notified = FALSE
+    </select>
+
+    <update id="updateNotified">
+        UPDATE price_alert SET notified = TRUE, updated_at = CURRENT_TIMESTAMP WHERE id = #{id}
+    </update>
+</mapper>

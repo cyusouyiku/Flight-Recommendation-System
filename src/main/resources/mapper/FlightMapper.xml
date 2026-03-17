@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.app.mapper.FlightMapper">
+
+    <resultMap id="BaseResultMap" type="com.example.app.entity.Flight">
+        <id column="id" property="id"/>
+        <result column="departure_time" property="departureTime"/>
+        <result column="arrival_time" property="arrivalTime"/>
+        <result column="duration_minutes" property="durationMinutes"/>
+        <result column="effective_date" property="effectiveDate"/>
+        <result column="flight_number" property="flightNumber"/>
+        <result column="airline_code" property="airlineCode"/>
+        <result column="cabin_class" property="cabinClass"/>
+        <result column="aircraft_type" property="aircraftType"/>
+        <result column="stops" property="stops"/>
+        <result column="is_direct" property="isDirect"/>
+        <result column="departure_airport" property="departureAirport"/>
+        <result column="arrival_airport" property="arrivalAirport"/>
+        <result column="departure_airport_code" property="departureAirportCode"/>
+        <result column="arrival_airport_code" property="arrivalAirportCode"/>
+        <result column="price" property="price"/>
+        <result column="original_price" property="originalPrice"/>
+        <result column="available_seats" property="availableSeats"/>
+        <result column="status" property="status"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+    </resultMap>
+
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT id, departure_time, arrival_time, duration_minutes, effective_date,
+               flight_number, airline_code, cabin_class, aircraft_type, stops, is_direct,
+               departure_airport, arrival_airport, departure_airport_code, arrival_airport_code,
+               price, original_price, available_seats, status, created_at, updated_at
+        FROM flight WHERE id = #{id}
+    </select>
+
+    <select id="selectAll" resultMap="BaseResultMap">
+        SELECT id, departure_time, arrival_time, duration_minutes, effective_date,
+               flight_number, airline_code, cabin_class, aircraft_type, stops, is_direct,
+               departure_airport, arrival_airport, departure_airport_code, arrival_airport_code,
+               price, original_price, available_seats, status, created_at, updated_at
+        FROM flight
+    </select>
+
+    <select id="selectBySearch" resultMap="BaseResultMap">
+        SELECT id, departure_time, arrival_time, duration_minutes, effective_date,
+               flight_number, airline_code, cabin_class, aircraft_type, stops, is_direct,
+               departure_airport, arrival_airport, departure_airport_code, arrival_airport_code,
+               price, original_price, available_seats, status, created_at, updated_at
+        FROM flight
+        WHERE departure_airport_code = #{departureAirportCode}
+          AND arrival_airport_code = #{arrivalAirportCode}
+          AND effective_date = #{effectiveDate}
+    </select>
+
+    <!-- 动态搜索：支持舱位、航司、直飞、经停、排序 -->
+    <select id="selectBySearchAdvanced" resultMap="BaseResultMap">
+        SELECT id, departure_time, arrival_time, duration_minutes, effective_date,
+               flight_number, airline_code, cabin_class, aircraft_type, stops, is_direct,
+               departure_airport, arrival_airport, departure_airport_code, arrival_airport_code,
+               price, original_price, available_seats, status, created_at, updated_at
+        FROM flight
+        <where>
+            <if test="departureAirportCode != null and departureAirportCode != ''">
+                AND departure_airport_code = #{departureAirportCode}
+            </if>
+            <if test="arrivalAirportCode != null and arrivalAirportCode != ''">
+                AND arrival_airport_code = #{arrivalAirportCode}
+            </if>
+            <if test="effectiveDate != null">
+                AND effective_date = #{effectiveDate}
+            </if>
+            <if test="cabinClass != null and cabinClass != ''">
+                AND cabin_class = #{cabinClass}
+            </if>
+            <if test="airlineCode != null and airlineCode != ''">
+                AND airline_code = #{airlineCode}
+            </if>
+            <if test="directOnly != null and directOnly">
+                AND is_direct = TRUE
+            </if>
+            <if test="maxStops != null">
+                AND stops &lt;= #{maxStops}
+            </if>
+            AND status = 'SCHEDULED'
+        </where>
+        <choose>
+            <when test="sortBy == 'PRICE_ASC'">
+                ORDER BY price ASC, departure_time ASC
+            </when>
+            <when test="sortBy == 'PRICE_DESC'">
+                ORDER BY price DESC, departure_time ASC
+            </when>
+            <when test="sortBy == 'DURATION_ASC'">
+                ORDER BY duration_minutes ASC, price ASC
+            </when>
+            <when test="sortBy == 'DEPARTURE_ASC'">
+                ORDER BY departure_time ASC, price ASC
+            </when>
+            <when test="sortBy == 'COMPOSITE'">
+                <!-- 综合评分：价格权重 + 时长权重，归一化后排序 -->
+                ORDER BY (price * 0.6 + duration_minutes * 2) ASC, departure_time ASC
+            </when>
+            <otherwise>
+                ORDER BY price ASC, departure_time ASC
+            </otherwise>
+        </choose>
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO flight (departure_time, arrival_time, duration_minutes, effective_date,
+            flight_number, airline_code, cabin_class, aircraft_type, stops, is_direct,
+            departure_airport, arrival_airport, departure_airport_code, arrival_airport_code,
+            price, original_price, available_seats, status, created_at, updated_at)
+        VALUES (#{departureTime}, #{arrivalTime}, #{durationMinutes}, #{effectiveDate},
+            #{flightNumber}, #{airlineCode}, #{cabinClass}, #{aircraftType}, #{stops}, #{isDirect},
+            #{departureAirport}, #{arrivalAirport}, #{departureAirportCode}, #{arrivalAirportCode},
+            #{price}, #{originalPrice}, #{availableSeats}, #{status}, #{createdAt}, #{updatedAt})
+    </insert>
+
+    <update id="update">
+        UPDATE flight SET
+            departure_time = #{departureTime}, arrival_time = #{arrivalTime},
+            duration_minutes = #{durationMinutes}, effective_date = #{effectiveDate},
+            flight_number = #{flightNumber}, airline_code = #{airlineCode},
+            cabin_class = #{cabinClass}, aircraft_type = #{aircraftType},
+            stops = #{stops}, is_direct = #{isDirect},
+            departure_airport = #{departureAirport}, arrival_airport = #{arrivalAirport},
+            departure_airport_code = #{departureAirportCode}, arrival_airport_code = #{arrivalAirportCode},
+            price = #{price}, original_price = #{originalPrice}, available_seats = #{availableSeats},
+            status = #{status}, created_at = #{createdAt}, updated_at = #{updatedAt}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM flight WHERE id = #{id}
+    </delete>
+</mapper>

@@ -1,0 +1,62 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: springboot-app
+  datasource:
+    url: jdbc:h2:mem:flightdb
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+    hikari:
+      connection-timeout: 30000
+      maximum-pool-size: 10
+      minimum-idle: 5
+  h2:
+    console:
+      enabled: true
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  sql:
+    init:
+      mode: never
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+
+# PageHelper
+pagehelper:
+  helper-dialect: h2
+  reasonable: true
+
+# SpringDoc Swagger
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+# Actuator（健康检查等）
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized
+
+logging:
+  level:
+    root: INFO
+    com.example: DEBUG
