@@ -95,17 +95,17 @@ java -jar target/springboot-app-1.0.0-SNAPSHOT.jar
 
 ```
 src/main/java/com/example/app/
-├── SpringbootAppApplication.java   # 启动类
-├── aspect/                         # AOP 切面（用户行为埋点）
-├── common/                          # 通用组件（Result、异常处理）
-├── config/                          # 配置（Security、Redis、缓存、OpenAPI）
-├── controller/                      # 控制器
-├── dto/                             # 数据传输对象
-├── entity/                          # 实体类
-├── mapper/                          # MyBatis Mapper
-├── scheduler/                       # 定时任务（价格采集、提醒检查）
-├── security/                        # 认证（AuthUser）
-├── service/                         # 业务逻辑层
+├── SpringbootAppApplication.java   # 启动类（已完成）
+├── aspect/                         # AOP 切面（用户行为埋点）（已完成）
+├── common/                          # 通用组件（Result、异常处理）（已完成）
+├── config/                          # 配置（Security、Redis、缓存、OpenAPI）（已完成）
+├── controller/                      # 控制器（已完成）
+├── dto/                             # 数据传输对象（已完成）
+├── entity/                          # 实体类（已完成）
+├── mapper/                          # MyBatis Mapper（已完成）
+├── scheduler/                       # 定时任务（价格采集、提醒检查）（已完成）
+├── security/                        # 认证（AuthUser）（已完成）
+├── service/                         # 业务逻辑层（已完成）
 └── ...
 ```
 
