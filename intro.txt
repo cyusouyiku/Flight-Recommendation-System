@@ -1,0 +1,638 @@
+================================================================
+        机票推荐系统（AI版）全面项目解读
+        Flight Recommendation System - AI Version
+================================================================
+
+一、项目总览
+================================================================
+
+项目名称：机票推荐系统（AI版）
+后端框架：Spring Boot 3.4.1 + Spring Security + MyBatis
+前端框架：Vue 3 + TypeScript + Vite
+数据库：H2（开发内存库）/ 支持切换 MySQL、PostgreSQL（生产）
+核心特色：集成 DeepSeek AI，对推荐结果进行智能重排，实现用户反馈闭环优化
+
+
+二、技术栈
+================================================================
+
+层次              技术
+--------------------------------------------------------------
+后端框架          Spring Boot 3.4.1 + Spring Security + MyBatis
+数据库            H2（开发）/ MySQL、PostgreSQL（生产可切换）
+数据迁移          Flyway（自动执行 V1~V5 迁移脚本）
+分页              PageHelper 2.1.0
+API 文档          SpringDoc OpenAPI（Swagger UI）
+AI 集成           OpenAI Java SDK 0.18.2（兼容 DeepSeek API）
+前端框架          Vue 3 + TypeScript + Vite
+UI 组件库         Element Plus
+状态管理          Pinia
+HTTP 请求         Axios（含请求/响应拦截器）
+
+
+三、数据库设计（10 张表）
+================================================================
+
+表名                      说明
+--------------------------------------------------------------
+airport                   机场信息（代码、城市、时区）
+airline                   航空公司（代码、名称）
+route                     航线（出发/到达机场对）
+flight                    航班主表（时刻、价格、舱位、座位等）
+app_user                  用户（用户名、BCrypt密码、邮箱）
+booking                   预订记录
+flight_price              价格历史（用于趋势分析）
+user_flight_history       用户搜索/点击/预订行为记录
+price_alert               用户设置的低价提醒
+user_feedback             用户对航班的反馈（LIKE/DISLIKE/NEUTRAL，含AI分析结果）
+
+详细建表语句：
+
+-- airport（机场表）
+CREATE TABLE airport (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    code VARCHAR(3) NOT NULL UNIQUE,       -- 机场代码 (PEK, PVG等)
+    name VARCHAR(255),                     -- 机场名称
+    city VARCHAR(255),                     -- 城市
+    country VARCHAR(255),                  -- 国家
+    timezone VARCHAR(64)                   -- 时区
+);
+
+-- airline（航空公司表）
+CREATE TABLE airline (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    code VARCHAR(2) NOT NULL UNIQUE,       -- 航司代码 (CA, MU等)
+    name VARCHAR(255)                      -- 航司名称
+);
+
+-- route（航线表）
+CREATE TABLE route (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    departure_airport_code VARCHAR(3),
+    arrival_airport_code VARCHAR(3),
+    departure_airport_name VARCHAR(255),
+    arrival_airport_name VARCHAR(255)
+);
+
+-- flight（航班主表）
+CREATE TABLE flight (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    departure_time TIMESTAMP,
+    arrival_time TIMESTAMP,
+    duration_minutes INT,
+    effective_date DATE,
+    flight_number VARCHAR(32),
+    airline_code VARCHAR(8),
+    cabin_class VARCHAR(32),               -- Y/E/C/F
+    aircraft_type VARCHAR(32),
+    stops INT,
+    is_direct BOOLEAN,
+    departure_airport VARCHAR(255),
+    arrival_airport VARCHAR(255),
+    departure_airport_code VARCHAR(3),
+    arrival_airport_code VARCHAR(3),
+    price INT,
+    original_price INT,
+    available_seats INT,
+    status VARCHAR(32),
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP
+);
+
+-- app_user（用户表）
+CREATE TABLE app_user (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(64),
+    password VARCHAR(255),                 -- BCrypt加密
+    email VARCHAR(255),
+    phone VARCHAR(32),
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP
+);
+
+-- booking（预订记录表）
+CREATE TABLE booking (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT,
+    flight_number VARCHAR(32),
+    cabin_class VARCHAR(32),
+    passenger_name VARCHAR(255),
+    status VARCHAR(32),
+    amount INT,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP
+);
+
+-- flight_price（价格历史表）
+CREATE TABLE flight_price (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    flight_number VARCHAR(32),
+    departure_airport_code VARCHAR(3),
+    arrival_airport_code VARCHAR(3),
+    cabin_class VARCHAR(32),
+    price INT,
+    record_at TIMESTAMP
+);
+
+-- user_flight_history（用户行为历史表）
+CREATE TABLE user_flight_history (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT,
+    departure_airport_code VARCHAR(3),
+    arrival_airport_code VARCHAR(3),
+    behavior_type VARCHAR(32),             -- SEARCH/CLICK/BOOK
+    flight_number VARCHAR(32),
+    created_at TIMESTAMP
+);
+
+-- price_alert（低价提醒表）
+CREATE TABLE price_alert (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    departure_airport_code VARCHAR(3) NOT NULL,
+    arrival_airport_code VARCHAR(3) NOT NULL,
+    target_price INT NOT NULL,
+    cabin_class VARCHAR(32) DEFAULT 'Y',
+    notified BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP
+);
+
+-- user_feedback（用户反馈表）
+CREATE TABLE user_feedback (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT,
+    flight_id BIGINT,
+    feedback_type VARCHAR(32) NOT NULL,    -- LIKE/DISLIKE/NEUTRAL
+    feedback_text TEXT,
+    ai_analysis TEXT,
+    confidence_score DECIMAL(3,2),         -- 0-1
+    metadata TEXT,                         -- JSON格式元数据
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES app_user(id) ON DELETE SET NULL,
+    FOREIGN KEY (flight_id) REFERENCES flight(id) ON DELETE SET NULL
+);
+CREATE INDEX idx_user_feedback_user_id ON user_feedback(user_id);
+CREATE INDEX idx_user_feedback_feedback_type ON user_feedback(feedback_type);
+CREATE INDEX idx_user_feedback_created_at ON user_feedback(created_at);
+
+
+四、后端目录结构
+================================================================
+
+src/main/java/com/example/app/
+├── SpringbootAppApplication.java              应用入口
+├── aspect/                                    AOP 切面
+├── common/
+│   ├── Result.java                            统一响应结果包装
+│   └── GlobalExceptionHandler.java            全局异常处理
+├── config/
+│   ├── SecurityConfig.java                    Spring Security 配置
+│   ├── AiConfig.java                          AI 配置
+│   ├── CacheConfig.java                       缓存配置
+│   ├── OpenApiConfig.java                     OpenAPI/Swagger 配置
+│   ├── RedisCacheConfig.java                  Redis 缓存配置
+│   ├── RedisConfig.java                       Redis 连接配置
+│   └── WebConfig.java                         Web 配置
+├── controller/
+│   ├── AiController.java                      AI 相关接口
+│   ├── AuthController.java                    认证接口（注册/登录）
+│   ├── FlightController.java                  航班查询接口
+│   ├── HealthController.java                  健康检查接口
+│   ├── HomeController.java                    主页接口
+│   ├── PriceController.java                   价格趋势/提醒接口
+│   ├── RecommendationController.java          推荐接口
+│   └── RouteController.java                   航线接口
+├── dto/
+│   ├── FlightSearchParams.java                航班搜索参数
+│   ├── FlightSearchRequest.java               航班搜索请求 DTO
+│   ├── FlightSearchResponse.java              航班搜索响应 DTO
+│   ├── FlightVO.java                          航班 VO
+│   ├── LoginRequest.java                      登录请求
+│   ├── PageResult.java                        分页结果
+│   ├── PriceAlertRequest.java                 价格提醒请求
+│   ├── RegisterRequest.java                   注册请求
+│   └── ai/
+│       ├── AiAnalysisResult.java              AI 分析结果
+│       ├── AiFeedbackRequest.java             反馈请求
+│       ├── AiFeedbackRerankRequest.java       反馈重排请求
+│       ├── AiFeedbackRerankResponse.java      反馈重排响应
+│       ├── AiFeedbackResponse.java            反馈响应
+│       └── AiRecommendRequest.java            AI 推荐请求
+├── entity/
+│   ├── Airline.java / Airport.java / Booking.java
+│   ├── Flight.java / FlightPrice.java / PriceAlert.java
+│   ├── Route.java / User.java / UserFeedback.java
+│   └── UserFlightHistory.java
+├── mapper/                                    MyBatis 映射层（对应 XML 文件）
+│   ├── AirlineMapper / AirportMapper / BookingMapper
+│   ├── FlightMapper / FlightPriceMapper / PriceAlertMapper
+│   ├── RouteMapper / UserFeedbackMapper
+│   ├── UserFlightHistoryMapper / UserMapper
+├── security/
+│   └── AuthUser.java                          自定义 UserDetails 实现
+└── service/
+    ├── AirportService.java
+    ├── AuthService.java                       认证服务
+    ├── FlightService.java                     航班查询服务
+    ├── NotificationService.java               邮件通知服务
+    ├── PriceAlertService.java                 低价提醒服务
+    ├── PriceTrendService.java                 价格趋势服务
+    ├── RecommendationService.java             推荐算法核心
+    ├── RouteService.java
+    ├── UserBehaviorService.java               用户行为记录服务
+    ├── UserDetailsServiceImpl.java            Spring Security 用户详情
+    ├── UserFeedbackService.java               用户反馈服务
+    ├── UserService.java
+    └── ai/
+        ├── AiClient.java                      OpenAI/DeepSeek 客户端
+        ├── AiResponseParser.java              AI 响应 JSON 解析器
+        ├── AiService.java                     AI 服务接口
+        ├── AiServiceImpl.java                 AI 服务实现
+        └── PromptBuilder.java                 Prompt 构建器
+
+
+五、后端核心模块详解
+================================================================
+
+5.1 推荐算法（四层策略）
+--------------------------------------------------------------
+
+第1层：热门推荐
+  统计全局搜索频次最高的 Top5 航线，取每条航线最便宜的航班
+
+第2层：常搜航线
+  获取当前登录用户搜索频次 Top3 的航线，取未来14天内的航班
+
+第3层：你可能喜欢
+  获取用户常搜 Top2 航线，推荐用户从未搜索过的相似航线航班
+
+第4层：随机推荐（兜底）
+  未登录用户或无历史数据时使用
+
+        ↓ 以上结果全部汇入 AI 重排 ↓
+
+AI 重排逻辑：
+  1. 合并所有层推荐的候选航班
+  2. 获取用户历史反馈（LIKE/DISLIKE/NEUTRAL）
+  3. 构建 FlightRerankPrompt（含8个排序因素：价格、时间、航司、转机、舒适度等）
+  4. 调用 DeepSeek API，返回每个航班的评分 JSON（flight_id, score 0-1）
+  5. 过滤掉分数 < 0.7 的航班
+  6. 按分数重新排序，返回优化后的推荐列表
+
+
+5.2 AI 服务（四大功能）
+--------------------------------------------------------------
+
+功能                          说明
+--------------------------------------------------------------
+rerankRecommendations         用户历史反馈 + 航班信息 → AI 打分 → 重新排序
+generatePersonalizedRecs      根据用户偏好（时间/价格/舱位）→ AI 生成个性化推荐
+analyzeUserFeedback           对用户反馈做情感分析，提取关键因素和改进建议
+analyzeRecommendationPerf     对推荐系统整体效果做 SWOT 分析
+
+AI 调用链路：
+  PromptBuilder（构建 Prompt）
+      → AiClient（调用 DeepSeek API，使用 OpenAI Java SDK）
+      → AiResponseParser（解析 JSON 响应）
+      → AiServiceImpl（整合业务逻辑）
+
+AiClient 核心配置：
+  model: deepseek-chat
+  temperature: 0.3（低随机性，结果更稳定）
+  max-tokens: 1000
+  timeout: 30s
+  base-url: https://api.deepseek.com/v1
+
+PromptBuilder 构建的 Prompt 类型：
+  1. FlightRerankPrompt     - 航班重排，返回 { sorted_flights: [ { flight_id, score, reason } ] }
+  2. FeedbackAnalysisPrompt - 反馈分析，返回 { sentiment, sentiment_score, key_factors, confidence }
+  3. RecommendationPerformancePrompt - 效果分析，返回 SWOT 分析 JSON
+
+AiResponseParser 解析逻辑：
+  - 使用 Jackson ObjectMapper 解析 AI 返回的 JSON 字符串
+  - 容错处理：解析失败时返回默认结果，不抛出异常
+
+
+5.3 安全配置
+--------------------------------------------------------------
+
+密码加密：BCrypt（BCryptPasswordEncoder）
+
+认证方式：Spring Security Session（表单/JSON认证）
+
+公开接口（无需登录）：
+  /api/auth/**               注册、登录
+  /api/health                健康检查
+  /api/flights/**            航班查询
+  /api/routes/**             航线查询
+  /api/recommendations/**    推荐查询
+  /api/price/**              价格查询
+  /h2-console/**             H2 控制台
+  /actuator/**               健康监控
+  /swagger-ui/**             API 文档
+  /v3/api-docs/**            OpenAPI 文档
+
+需登录接口：
+  /api/ai/feedback/**        用户反馈（需绑定用户ID）
+  其他 /api/** 接口
+
+CSRF：已禁用（REST API 场景）
+H2 Console：允许同源 iframe（frameOptions.sameOrigin）
+
+AuthUser 自定义实现：
+  实现 UserDetails 接口，扩展 getUserId() 方法
+  权限：默认 ROLE_USER
+
+
+5.4 其他服务
+--------------------------------------------------------------
+
+PriceAlertService：
+  用户设置价格阈值，定时任务每分钟扫描 price_alert 表
+  当航班价格低于阈值时，调用 NotificationService 发送邮件通知
+  notified 字段标记已通知，避免重复发送
+
+PriceTrendService：
+  查询 flight_price 表中某航线的历史价格记录
+  按时间排序返回，前端绘制价格趋势折线图
+
+UserBehaviorService：
+  每次用户搜索/点击/预订时，异步写入 user_flight_history 表
+  供 RecommendationService 的第2、3层推荐算法使用
+
+NotificationService：
+  封装 Spring Mail，发送 HTML 格式邮件
+  需在 application.yml 配置 SMTP 信息
+
+
+六、API 接口一览（共 19 个）
+================================================================
+
+认证接口 (/api/auth)
+--------------------------------------------------------------
+POST  /api/auth/register      用户注册（username, password, email, phone）
+POST  /api/auth/login         用户登录（username, password）
+
+航班接口 (/api/flights)
+--------------------------------------------------------------
+GET   /api/flights            获取所有航班列表
+GET   /api/flights/{id}       获取航班详情
+GET   /api/flights/search     高级搜索（departure, arrival, date, page, size, sortBy,
+                              priceMin, priceMax, airline, cabinClass, isDirect）
+
+推荐接口 (/api/recommendations)
+--------------------------------------------------------------
+GET   /api/recommendations    获取综合个性化推荐（四层 + AI重排）
+
+航线接口 (/api/routes)
+--------------------------------------------------------------
+GET   /api/routes/popular     热门航线排行（limit 参数，默认10）
+
+价格接口 (/api/price)
+--------------------------------------------------------------
+GET   /api/price/trend        价格趋势查询（departure, arrival, days）
+POST  /api/price/alert        创建低价提醒（departureCode, arrivalCode, targetPrice, cabinClass）
+GET   /api/price/alert        获取我的提醒列表（需登录）
+
+AI 接口 (/api/ai)
+--------------------------------------------------------------
+POST  /api/ai/feedback        提交用户反馈（flightId, feedbackType, feedbackText）
+GET   /api/ai/feedback        获取反馈历史（需登录）
+GET   /api/ai/feedback/stats  获取反馈统计数据
+POST  /api/ai/feedback/rerank 反馈后重新排列推荐
+POST  /api/ai/analyze         AI 分析推荐效果（period 参数）
+GET   /api/ai/status          获取 AI 服务状态（是否可用、连接测试）
+POST  /api/ai/recommend       AI 个性化推荐（AiRecommendRequest）
+POST  /api/ai/assistant       AI 对话助手（message, context）
+
+健康检查
+--------------------------------------------------------------
+GET   /api/health             系统健康状态 {status: UP, application: ...}
+GET   /                       主页文档 {endpoints: ...}
+
+
+七、前端目录结构
+================================================================
+
+frontend/src/
+├── App.vue                              根组件
+├── main.ts                              应用入口（注册 Vue, Router, Pinia, ElementPlus）
+├── assets/
+│   └── main.css                         全局样式
+├── components/                          可复用组件
+├── composables/                         组合式 API（useXxx 函数）
+├── layouts/                             布局组件（含导航栏等）
+├── pages/                               页面组件
+├── router/
+│   └── index.ts                         路由配置
+├── services/
+│   ├── ai.ts                            AI 服务（反馈、推荐、分析）
+│   ├── auth.ts                          认证服务（登录、注册）
+│   └── flight.ts                        航班服务（搜索、推荐、价格）
+├── stores/
+│   └── auth.ts                          Pinia 认证状态管理
+├── types/
+│   ├── ai.ts                            AI 相关 TypeScript 类型
+│   ├── auth.ts                          认证类型
+│   └── flight.ts                        航班类型
+├── utils/
+│   └── api.ts                           Axios 实例 + 拦截器配置
+└── views/
+    ├── HomeView.vue                     首页 + 热门推荐
+    ├── SearchView.vue                   航班搜索、过滤、排序、分页
+    ├── RecommendationsView.vue          个性化推荐展示（AI增强）
+    ├── PriceTrendView.vue               价格趋势折线图
+    ├── AiAssistantView.vue              AI 对话助手界面
+    ├── FeedbackView.vue                 用户反馈提交/历史/统计
+    ├── LoginView.vue                    登录页
+    └── RegisterView.vue                 注册页
+
+
+八、前端页面功能
+================================================================
+
+页面                    路径                功能
+--------------------------------------------------------------
+HomeView               /                   首页展示、热门推荐卡片
+SearchView             /search             多条件航班搜索、过滤、价格/时长排序、分页
+RecommendationsView    /recommendations    分类展示推荐（热门/常搜/你可能喜欢），AI重排结果
+PriceTrendView         /price-trend        选择航线查看历史价格趋势，折线图展示
+AiAssistantView        /ai-assistant       与 AI 对话，询问航班、推荐等问题
+FeedbackView           /feedback           提交 LIKE/DISLIKE/NEUTRAL 反馈，查看历史和统计
+LoginView              /login              用户名/密码登录
+RegisterView           /register           新用户注册
+
+
+九、前端技术细节
+================================================================
+
+9.1 Vite 代理配置（vite.config.ts）
+--------------------------------------------------------------
+前端端口：3000
+代理规则：/api → http://localhost:8080
+作用：开发时将所有 /api 请求转发到 Spring Boot 后端，避免跨域问题
+
+9.2 API 客户端（utils/api.ts）
+--------------------------------------------------------------
+基于 Axios 封装，baseURL = '/api'，超时 10000ms
+
+请求拦截器：
+  自动从 localStorage 读取 token，添加 Authorization: Bearer xxx 请求头
+
+响应拦截器：
+  统一处理 Result<T> 格式响应（code=0 为成功）
+  HTTP 401 → 清除 token，跳转登录页
+  HTTP 403 → 提示无权限
+  HTTP 500 → 提示服务器错误
+
+9.3 认证状态管理（stores/auth.ts）
+--------------------------------------------------------------
+使用 Pinia 管理用户登录状态
+持久化到 localStorage（token, user 信息）
+提供 login(), logout(), isAuthenticated 等方法
+路由守卫使用 auth store 判断是否需要重定向到登录页
+
+
+十、配置文件（application.yml）
+================================================================
+
+server:
+  port: 8080
+  servlet:
+    context-path: /
+
+spring:
+  datasource:
+    url: jdbc:h2:mem:flightdb     # H2 内存数据库，重启清空
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:                      # 无密码
+    hikari:
+      connection-timeout: 30000
+      maximum-pool-size: 10
+      minimum-idle: 5
+  h2:
+    console:
+      enabled: true                # 开发环境开启 H2 控制台
+  flyway:
+    enabled: true
+    locations: classpath:db/migration    # 自动执行 V1~V5 SQL 脚本
+  autoconfigure:
+    exclude:                       # 默认禁用 Redis
+      - RedisAutoConfiguration
+      - RedisRepositoriesAutoConfiguration
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  configuration:
+    map-underscore-to-camel-case: true   # 下划线自动转驼峰
+
+pagehelper:
+  helper-dialect: h2
+  reasonable: true
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+ai:
+  openai:
+    api-key: ${DEEPSEEK_API_KEY:sk-xxx}  # 从环境变量读取
+    base-url: https://api.deepseek.com/v1
+    model: deepseek-chat
+    temperature: 0.3
+    max-tokens: 1000
+    timeout: 30s
+  recommendation:
+    enabled: true
+    rerank-threshold: 0.7         # 低于此分数的航班从推荐中去除
+    feedback-weight: 0.3          # 反馈在排序中的权重
+
+logging:
+  level:
+    root: INFO
+    com.example: DEBUG
+
+
+十一、项目亮点与注意事项
+================================================================
+
+亮点：
+  1. AI 重排是闭环设计
+     用户提交反馈 → AI 分析情感和原因 → 下次推荐时 AI 利用反馈数据重新排序
+     形成持续优化的推荐飞轮
+
+  2. 推荐算法分层清晰
+     冷启动用全局热门，有历史用个人常搜，进一步挖掘用相似航线
+     AI 作为最终优化层，而不是唯一依赖
+
+  3. AI 降级保护
+     AI 不可用（API Key 无效、网络超时等）时，系统自动降级返回原始推荐结果
+     不抛出异常，不影响主流程
+
+  4. 开箱即用
+     使用 H2 内存数据库 + Flyway 自动迁移，无需手动建表和导入数据
+     git clone 后直接 mvn spring-boot:run 即可启动
+
+  5. 接口文档完善
+     集成 SpringDoc OpenAPI，Swagger UI 提供所有接口的在线文档和测试能力
+
+注意事项：
+  1. AI 功能需要配置 DeepSeek API Key
+     通过环境变量 DEEPSEEK_API_KEY 或直接修改 application.yml 配置
+     不配置时 AI 功能静默降级，不会报错
+
+  2. H2 是内存数据库，重启后数据全部清空
+     Flyway 会在每次启动时重新执行种子数据脚本，测试数据会自动恢复
+     生产环境需切换到 MySQL/PostgreSQL
+
+  3. 邮件通知（低价提醒）需配置 SMTP
+     不配置不影响其他所有功能，仅 price_alert 邮件发送不生效
+
+  4. Redis 默认禁用
+     如需启用缓存，移除 autoconfigure.exclude 配置并添加 Redis 连接信息
+
+  5. 定时任务
+     系统每分钟扫描一次 price_alert 表，检查是否有需要发送提醒的记录
+     可在日志中看到 scheduling-1 线程的 SQL 执行记录
+
+
+十二、启动步骤
+================================================================
+
+环境要求：
+  Java 21+
+  Maven 3.9+
+  Node.js 18+
+  npm 9+
+
+后端启动：
+  cd /path/to/Flight-Recommendation-System-AI-Version
+  export DEEPSEEK_API_KEY=your_api_key    # 可选，AI 功能需要
+  mvn spring-boot:run
+
+前端启动：
+  cd frontend
+  npm install                              # 首次需要安装依赖
+  npm run dev
+
+访问地址：
+  前端页面：  http://localhost:3000
+  后端接口：  http://localhost:8080
+  Swagger UI: http://localhost:8080/swagger-ui.html
+  H2 控制台：http://localhost:8080/h2-console
+             JDBC URL: jdbc:h2:mem:flightdb
+             用户名: sa  密码: (空)
+
+================================================================
+文档生成时间：2026年4月19日
+项目解读：GitHub Copilot
+================================================================

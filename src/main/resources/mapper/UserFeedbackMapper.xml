@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.app.mapper.UserFeedbackMapper">
+
+    <resultMap id="BaseResultMap" type="com.example.app.entity.UserFeedback">
+        <id column="id" property="id"/>
+        <result column="user_id" property="userId"/>
+        <result column="flight_id" property="flightId"/>
+        <result column="feedback_type" property="feedbackType"/>
+        <result column="feedback_text" property="feedbackText"/>
+        <result column="ai_analysis" property="aiAnalysis"/>
+        <result column="confidence_score" property="confidenceScore"/>
+        <result column="metadata" property="metadata"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+    </resultMap>
+
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT id, user_id, flight_id, feedback_type, feedback_text,
+               ai_analysis, confidence_score, metadata, created_at, updated_at
+        FROM user_feedback WHERE id = #{id}
+    </select>
+
+    <select id="selectByUserId" resultMap="BaseResultMap">
+        SELECT id, user_id, flight_id, feedback_type, feedback_text,
+               ai_analysis, confidence_score, metadata, created_at, updated_at
+        FROM user_feedback WHERE user_id = #{userId}
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="selectByUserIdAndType" resultMap="BaseResultMap">
+        SELECT id, user_id, flight_id, feedback_type, feedback_text,
+               ai_analysis, confidence_score, metadata, created_at, updated_at
+        FROM user_feedback WHERE user_id = #{userId} AND feedback_type = #{feedbackType}
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="selectByFlightId" resultMap="BaseResultMap">
+        SELECT id, user_id, flight_id, feedback_type, feedback_text,
+               ai_analysis, confidence_score, metadata, created_at, updated_at
+        FROM user_feedback WHERE flight_id = #{flightId}
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="selectAll" resultMap="BaseResultMap">
+        SELECT id, user_id, flight_id, feedback_type, feedback_text,
+               ai_analysis, confidence_score, metadata, created_at, updated_at
+        FROM user_feedback
+        ORDER BY created_at DESC
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO user_feedback (
+            user_id, flight_id, feedback_type, feedback_text,
+            ai_analysis, confidence_score, metadata, created_at, updated_at
+        ) VALUES (
+            #{userId}, #{flightId}, #{feedbackType}, #{feedbackText},
+            #{aiAnalysis}, #{confidenceScore}, #{metadata}, #{createdAt}, #{updatedAt}
+        )
+    </insert>
+
+    <update id="update">
+        UPDATE user_feedback SET
+            user_id = #{userId},
+            flight_id = #{flightId},
+            feedback_type = #{feedbackType},
+            feedback_text = #{feedbackText},
+            ai_analysis = #{aiAnalysis},
+            confidence_score = #{confidenceScore},
+            metadata = #{metadata},
+            updated_at = #{updatedAt}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM user_feedback WHERE id = #{id}
+    </delete>
+
+    <select id="countByUserId" resultType="int">
+        SELECT COUNT(*) FROM user_feedback WHERE user_id = #{userId}
+    </select>
+
+    <select id="selectFeedbackStatsByUserId" resultType="map">
+        SELECT feedback_type, COUNT(*) as count
+        FROM user_feedback
+        WHERE user_id = #{userId}
+        GROUP BY feedback_type
+    </select>
+
+    <select id="selectRecentFeedbacks" resultMap="BaseResultMap">
+        SELECT id, user_id, flight_id, feedback_type, feedback_text,
+               ai_analysis, confidence_score, metadata, created_at, updated_at
+        FROM user_feedback
+        ORDER BY created_at DESC
+        LIMIT #{limit}
+    </select>
+</mapper>

@@ -12,6 +12,10 @@ public interface UserMapper {
 
     User selectByUsername(String username);
 
+    User selectByEmail(String email);
+
+    User selectByPhone(String phone);
+
     List<User> selectAll();
 
     int insert(User user);

@@ -56,6 +56,25 @@ management:
     health:
       show-details: when-authorized
 
+# AI配置
+ai:
+  openai:
+    api-key: ${DEEPSEEK_API_KEY:sk-b9d042876d034ec0904520bc2714d7ca}
+    base-url: https://api.deepseek.com/v1/
+    model: deepseek-chat
+    temperature: 0.3
+    max-tokens: 1000
+    timeout: 30s
+  recommendation:
+    enabled: true
+    rerank-threshold: 0.7
+    feedback-weight: 0.3
+
+# JWT配置
+jwt:
+  secret: flight-recommendation-secret-key-must-be-at-least-256-bits-long-for-production
+  expiration: 86400000 # 24小时（毫秒）
+
 logging:
   level:
     root: INFO

@@ -1,9 +1,11 @@
 package com.example.app.service;
 
 import com.example.app.dto.FlightSearchParams;
+import com.example.app.dto.ai.AiRecommendRequest;
 import com.example.app.entity.Flight;
 import com.example.app.mapper.FlightMapper;
 import com.example.app.mapper.UserFlightHistoryMapper;
+import com.example.app.service.ai.AiService;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -13,17 +15,19 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * 个性化推荐服务：热门、你可能喜欢、常搜航线
+ * 个性化推荐服务：热门、你可能喜欢、常搜航线，支持AI重新排序
  */
 @Service
 public class RecommendationService {
 
     private final FlightMapper flightMapper;
     private final UserFlightHistoryMapper historyMapper;
+    private final AiService aiService;
 
-    public RecommendationService(FlightMapper flightMapper, UserFlightHistoryMapper historyMapper) {
+    public RecommendationService(FlightMapper flightMapper, UserFlightHistoryMapper historyMapper, AiService aiService) {
         this.flightMapper = flightMapper;
         this.historyMapper = historyMapper;
+        this.aiService = aiService;
     }
 
     private Long getCurrentUserId() {
@@ -38,7 +42,7 @@ public class RecommendationService {
     }
 
     /**
-     * 综合推荐：合并多种策略
+     * 综合推荐：合并多种策略，支持AI重新排序
      */
     public Map<String, List<Flight>> getRecommendations() {
         Map<String, List<Flight>> result = new LinkedHashMap<>();
@@ -71,7 +75,31 @@ public class RecommendationService {
             result.put("为您推荐", getRandomFlights());
         }
 
+        // AI重新排序（如果启用）
+        if (aiService.isAiEnabled()) {
+            result = aiService.rerankRecommendations(result, userId);
+        }
+
         return result;
+    }
+
+    /**
+     * AI增强推荐：基于用户偏好的AI个性化推荐
+     */
+    public Map<String, List<Flight>> getAiEnhancedRecommendations(AiRecommendRequest request) {
+        Long userId = getCurrentUserId();
+
+        if (!aiService.isAiEnabled()) {
+            // AI不可用时返回传统推荐
+            return getRecommendations();
+        }
+
+        try {
+            return aiService.generatePersonalizedRecommendations(request, userId);
+        } catch (Exception e) {
+            // AI失败时回退到传统推荐
+            return getRecommendations();
+        }
     }
 
     private List<Flight> getPopularFlights() {
